@@ -12,8 +12,8 @@ import {
   ReferenceLine,
   ComposedChart
 } from 'recharts';
-import type { ChartData } from '../types';
-import { useTheme } from '../App';
+import type { ChartData } from '../../../shared/types';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
 
 interface KeynesianCrossChartProps {
   data: ChartData[];

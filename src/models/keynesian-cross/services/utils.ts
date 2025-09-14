@@ -1,5 +1,5 @@
 
-import type { EconomicParams } from '../types';
+import type { EconomicParams } from '../../../shared/types';
 
 export const calculateEquilibrium = (params: EconomicParams): number => {
   const { c0, c1, I, G, T } = params;

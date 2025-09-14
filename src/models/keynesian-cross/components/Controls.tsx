@@ -1,6 +1,6 @@
 import React from 'react';
-import type { EconomicParams } from '../types';
-import { useTheme } from '../App';
+import type { EconomicParams } from '../../../shared/types';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
 
 interface ControlsProps {
   params: EconomicParams;

@@ -1,7 +1,7 @@
 import React from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
-import { useTheme } from '../App';
+import { useTheme } from '../../../shared/contexts/ThemeContext';
 
 interface ExplanationProps {
   explanation: string;
