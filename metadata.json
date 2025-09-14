@@ -1,0 +1,5 @@
+{
+  "name": "Simulador del Modelo de 45 Grados Keynesiano",
+  "description": "Una herramienta educativa interactiva que visualiza el modelo de 45 grados keynesiano. Los estudiantes pueden ajustar parámetros económicos y recibir explicaciones en tiempo real generadas por IA para entender el efecto multiplicador y los cambios de equilibrio.",
+  "requestFramePermissions": []
+}
