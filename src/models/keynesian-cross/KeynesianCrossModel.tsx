@@ -4,7 +4,7 @@ import { generateExplanation } from './services/geminiService';
 import Controls from './components/Controls';
 import KeynesianCrossChart from './components/KeynesianCrossChart';
 import Explanation from './components/Explanation';
-import { calculateEquilibrium, getChangedParam } from './services/utils';
+import { calculateEquilibrium, getChangedParam, needsBaselineReset } from './services/utils';
 
 const initialParams: EconomicParams = {
   c0: 180,
@@ -12,6 +12,8 @@ const initialParams: EconomicParams = {
   I: 160,
   G: 160,
   T: 120,
+  t: 0.25, // 25% tax rate
+  useLumpSumTax: true, // Start with traditional model
 };
 
 interface KeynesianCrossModelProps {
@@ -42,6 +44,12 @@ const KeynesianCrossModel: React.FC<KeynesianCrossModelProps> = ({ isDark, onBac
   const handleParamChange = useCallback((param: keyof EconomicParams, value: number) => {
     setParams(prev => ({ ...prev, [param]: value }));
     
+    // If we're changing a parameter after switching tax models,
+    // reset baseline to show the effect properly
+    if (baselineParams && needsBaselineReset(baselineParams, params)) {
+      setBaselineParams(params);
+    }
+    
     if (dragTimeoutRef.current) {
       clearTimeout(dragTimeoutRef.current);
     }
@@ -49,7 +57,33 @@ const KeynesianCrossModel: React.FC<KeynesianCrossModelProps> = ({ isDark, onBac
     dragTimeoutRef.current = setTimeout(() => {
       setIsDragging(false);
     }, 500);
-  }, []);
+  }, [params, baselineParams]);
+
+  const handleToggleChange = useCallback((param: keyof EconomicParams, value: boolean) => {
+    const oldParams = { ...params };
+    const newParams = { ...params, [param]: value };
+    
+    // Synchronize parameters when switching tax models
+    if (param === 'useLumpSumTax') {
+      if (value) {
+        // Switching TO lump sum (value = true)
+        // Calculate equivalent T₀ that gives similar tax burden
+        const currentY = calculateEquilibrium(params);
+        const equivalentT = params.t * currentY;
+        newParams.T = Math.max(0, Math.min(500, equivalentT));
+      } else {
+        // Switching TO proportional (value = false) 
+        // Calculate equivalent t that gives similar tax burden
+        const currentY = calculateEquilibrium(params);
+        const equivalentT = currentY > 0 ? Math.max(0.05, Math.min(0.8, params.T / currentY)) : 0.25;
+        newParams.t = equivalentT;
+      }
+    }
+    
+    setParams(newParams);
+    // Set baseline to old params to show the effect of changing tax model
+    setBaselineParams(oldParams);
+  }, [params]);
 
   useEffect(() => {
     const fetchExplanation = async () => {
@@ -109,18 +143,46 @@ La economía está en **equilibrio** donde la línea ZZ se cruza con la línea d
   }, []);
 
   const autonomousSpending = useMemo(() => {
-    return params.c0 + params.I + params.G - params.c1 * params.T;
+    if (params.useLumpSumTax) {
+      // Traditional model: T = T0 (lump sum)
+      return params.c0 + params.I + params.G - params.c1 * params.T;
+    } else {
+      // Extended model: T = tY (proportional taxes)
+      return params.c0 + params.I + params.G;
+    }
   }, [params]);
 
   const chartData: ChartData[] = useMemo(() => {
     const maxVal = Math.max(equilibriumY, baselineEquilibriumY || 0) * 1.5;
     const data: ChartData[] = [];
+    
     for (let y = 0; y <= maxVal; y += maxVal / 50) {
+      let currentZ, baselineZ = null;
+      
+      // Current model calculation
+      if (params.useLumpSumTax) {
+        currentZ = autonomousSpending + params.c1 * y;
+      } else {
+        currentZ = autonomousSpending + params.c1 * (1 - params.t) * y;
+      }
+      
+      // Baseline model calculation (if exists)
+      if (baselineParams) {
+        let baselineAutonomous;
+        if (baselineParams.useLumpSumTax) {
+          baselineAutonomous = baselineParams.c0 + baselineParams.I + baselineParams.G - baselineParams.c1 * baselineParams.T;
+          baselineZ = baselineAutonomous + baselineParams.c1 * y;
+        } else {
+          baselineAutonomous = baselineParams.c0 + baselineParams.I + baselineParams.G;
+          baselineZ = baselineAutonomous + baselineParams.c1 * (1 - baselineParams.t) * y;
+        }
+      }
+      
       data.push({
         y_val: y,
-        z_line: autonomousSpending + params.c1 * y,
+        z_line: currentZ,
         forty_five_line: y,
-        z_prime_line: baselineParams ? (baselineParams.c0 + baselineParams.I + baselineParams.G - baselineParams.c1 * baselineParams.T) + baselineParams.c1 * y : null
+        z_prime_line: baselineZ
       });
     }
     return data;
@@ -176,6 +238,7 @@ La economía está en **equilibrio** donde la línea ZZ se cruza con la línea d
             params={params} 
             onParamChange={handleParamChange}
             onParamStart={handleParamStart}
+            onToggleChange={handleToggleChange}
           />
         </div>
         

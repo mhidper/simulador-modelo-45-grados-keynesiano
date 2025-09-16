@@ -6,6 +6,7 @@ interface ControlsProps {
   params: EconomicParams;
   onParamChange: (param: keyof EconomicParams, value: number) => void;
   onParamStart: () => void;
+  onToggleChange: (param: keyof EconomicParams, value: boolean) => void;
 }
 
 interface ControlItemProps {
@@ -105,10 +106,13 @@ const ControlItem: React.FC<ControlItemProps> = ({
   );
 };
 
-const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart }) => {
+const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart, onToggleChange }) => {
   const { isDark } = useTheme();
   
   const titleClasses = isDark ? "text-gray-100" : "text-gray-800";
+  const cardClasses = isDark
+    ? "p-4 rounded-xl bg-gradient-to-br from-slate-700 to-gray-700 border border-slate-600"
+    : "p-4 rounded-xl bg-gradient-to-br from-white to-gray-50 border border-gray-200";
 
   return (
     <div className="space-y-6">
@@ -117,6 +121,48 @@ const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart
           Parámetros Económicos
         </h2>
         <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto"></div>
+      </div>
+      
+      {/* Toggle para el tipo de impuestos */}
+      <div className={cardClasses}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-lg">
+              ⚙️
+            </div>
+            <div>
+              <h3 className={`font-semibold ${titleClasses}`}>Modelo Fiscal</h3>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {params.useLumpSumTax ? 'Impuestos fijos (T₀)' : 'Impuestos proporcionales (tY)'}
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!params.useLumpSumTax}
+              onChange={(e) => onToggleChange('useLumpSumTax', !e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span className={`ml-3 text-sm font-medium ${titleClasses}`}>
+              {params.useLumpSumTax ? 'Usar impuestos proporcionales' : 'Usar impuestos fijos'}
+            </span>
+          </label>
+        </div>
+        
+        <div className={`p-3 rounded-lg ${isDark ? 'bg-slate-800' : 'bg-blue-50'}`}>
+          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+            <strong>Modelo actual:</strong> {params.useLumpSumTax ? 'T = T₀ (fijos)' : 'T = tY (proporcionales)'}
+          </p>
+          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <strong>Multiplicador:</strong> 
+            {params.useLumpSumTax 
+              ? ` 1/(1-c₁) = ${(1/(1-params.c1)).toFixed(2)}`
+              : ` 1/(1-c₁(1-t)) = ${(1/(1-params.c1*(1-params.t))).toFixed(2)}`
+            }
+          </p>
+        </div>
       </div>
       
       <div className="space-y-4">
@@ -176,19 +222,35 @@ const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart
           onParamStart={onParamStart}
         />
         
-        <ControlItem
-          id="T"
-          label="Impuestos Netos"
-          symbol="T"
-          icon="💰"
-          value={params.T}
-          min={0}
-          max={500}
-          step={10}
-          description="Impuestos menos transferencias del gobierno."
-          onParamChange={onParamChange}
-          onParamStart={onParamStart}
-        />
+        {params.useLumpSumTax ? (
+          <ControlItem
+            id="T"
+            label="Impuestos Fijos"
+            symbol="T₀"
+            icon="💰"
+            value={params.T}
+            min={0}
+            max={500}
+            step={10}
+            description="Impuestos de suma fija independientes de la renta."
+            onParamChange={onParamChange}
+            onParamStart={onParamStart}
+          />
+        ) : (
+          <ControlItem
+            id="t"
+            label="Tipo Impositivo"
+            symbol="t"
+            icon="📊"
+            value={params.t}
+            min={0.05}
+            max={0.8}
+            step={0.05}
+            description="Porcentaje de la renta que se paga en impuestos (T = tY)."
+            onParamChange={onParamChange}
+            onParamStart={onParamStart}
+          />
+        )}
       </div>
     </div>
   );

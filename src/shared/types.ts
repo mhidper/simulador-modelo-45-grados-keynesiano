@@ -18,7 +18,9 @@ export interface EconomicParams {
   c1: number; // Marginal Propensity to Consume
   I: number;  // Investment
   G: number;  // Government Spending
-  T: number;  // Taxes
+  T: number;  // Taxes (lump sum)
+  t: number;  // Tax rate (proportional taxes)
+  useLumpSumTax: boolean; // Toggle between T and tY
 }
 
 export interface ChartData {
