@@ -60,7 +60,8 @@ const ControlItem: React.FC<ControlItemProps> = ({
               <span className="font-mono text-xs opacity-75">({symbol})</span>
             </span>
             <span className={`font-bold text-lg font-mono ${valueClasses} transition-all duration-300 group-hover:scale-110`}>
-              {id === 'c1' ? value.toFixed(2) : value}
+              {id === 'c1' || id === 'b1' || id === 't' ? value.toFixed(2) : 
+               id === 'i' ? (value * 100).toFixed(1) + '%' : value}
             </span>
           </label>
         </div>
@@ -158,8 +159,54 @@ const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart
           <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <strong>Multiplicador:</strong> 
             {params.useLumpSumTax 
-              ? ` 1/(1-c₁) = ${(1/(1-params.c1)).toFixed(2)}`
-              : ` 1/(1-c₁(1-t)) = ${(1/(1-params.c1*(1-params.t))).toFixed(2)}`
+              ? (params.useSimpleInvestment 
+                  ? ` 1/(1-c₁) = ${(1/(1-params.c1)).toFixed(2)}`
+                  : ` 1/(1-c₁-b₁) = ${(1/(1-params.c1-params.b1)).toFixed(2)}`)
+              : (params.useSimpleInvestment 
+                  ? ` 1/(1-c₁(1-t)) = ${(1/(1-params.c1*(1-params.t))).toFixed(2)}`
+                  : ` 1/(1-c₁(1-t)-b₁) = ${(1/(1-params.c1*(1-params.t)-params.b1)).toFixed(2)}`)
+            }
+          </p>
+        </div>
+      </div>
+      
+      {/* Toggle para el tipo de inversión */}
+      <div className={cardClasses}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-lg">
+              🏭
+            </div>
+            <div>
+              <h3 className={`font-semibold ${titleClasses}`}>Modelo de Inversión</h3>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {params.useSimpleInvestment ? 'Inversión fija (I₀)' : 'Inversión endógena (I = b₀ + b₁Y - b₂i)'}
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!params.useSimpleInvestment}
+              onChange={(e) => onToggleChange('useSimpleInvestment', !e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span className={`ml-3 text-sm font-medium ${titleClasses}`}>
+              {params.useSimpleInvestment ? 'Usar inversión endógena' : 'Usar inversión fija'}
+            </span>
+          </label>
+        </div>
+        
+        <div className={`p-3 rounded-lg ${isDark ? 'bg-slate-800' : 'bg-green-50'}`}>
+          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
+            <strong>Función actual:</strong> {params.useSimpleInvestment ? 'I = I₀ (constante)' : 'I = b₀ + b₁Y - b₂i'}
+          </p>
+          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <strong>Efecto:</strong> 
+            {params.useSimpleInvestment 
+              ? ' La inversión no responde a cambios en la renta o tipo de interés'
+              : ' La inversión depende positivamente de la renta y negativamente del tipo de interés'
             }
           </p>
         </div>
@@ -194,19 +241,79 @@ const Controls: React.FC<ControlsProps> = ({ params, onParamChange, onParamStart
           onParamStart={onParamStart}
         />
         
-        <ControlItem
-          id="I"
-          label="Inversión Privada"
-          symbol="I"
-          icon="🏭"
-          value={params.I}
-          min={0}
-          max={500}
-          step={10}
-          description="Gasto empresarial en maquinaria, equipos y estructuras."
-          onParamChange={onParamChange}
-          onParamStart={onParamStart}
-        />
+        {params.useSimpleInvestment ? (
+          <ControlItem
+            id="I"
+            label="Inversión Privada"
+            symbol="I"
+            icon="🏭"
+            value={params.I}
+            min={0}
+            max={500}
+            step={10}
+            description="Gasto empresarial en maquinaria, equipos y estructuras (fijo)."
+            onParamChange={onParamChange}
+            onParamStart={onParamStart}
+          />
+        ) : (
+          <>
+            <ControlItem
+              id="b0"
+              label="Inversión Autónoma"
+              symbol="b₀"
+              icon="🏭"
+              value={params.b0}
+              min={0}
+              max={300}
+              step={10}
+              description="Componente fijo de la inversión independiente de Y e i."
+              onParamChange={onParamChange}
+              onParamStart={onParamStart}
+            />
+            
+            <ControlItem
+              id="b1"
+              label="Sensibilidad a la Renta"
+              symbol="b₁"
+              icon="📈"
+              value={params.b1}
+              min={0}
+              max={0.5}
+              step={0.05}
+              description="Cuánto aumenta la inversión por cada euro adicional de renta."
+              onParamChange={onParamChange}
+              onParamStart={onParamStart}
+            />
+            
+            <ControlItem
+              id="b2"
+              label="Sensibilidad al Tipo de Interés"
+              symbol="b₂"
+              icon="💹"
+              value={params.b2}
+              min={100}
+              max={3000}
+              step={100}
+              description="Cuánto disminuye la inversión cuando el tipo de interés sube 1 punto."
+              onParamChange={onParamChange}
+              onParamStart={onParamStart}
+            />
+            
+            <ControlItem
+              id="i"
+              label="Tipo de Interés"
+              symbol="i"
+              icon="🏦"
+              value={params.i}
+              min={0.01}
+              max={0.15}
+              step={0.01}
+              description="Coste del dinero que afecta a las decisiones de inversión (en decimales: 0.05 = 5%)."
+              onParamChange={onParamChange}
+              onParamStart={onParamStart}
+            />
+          </>
+        )}
         
         <ControlItem
           id="G"

@@ -4,7 +4,7 @@ import { generateExplanation } from './services/geminiService';
 import Controls from './components/Controls';
 import KeynesianCrossChart from './components/KeynesianCrossChart';
 import Explanation from './components/Explanation';
-import { calculateEquilibrium, getChangedParam, needsBaselineReset } from './services/utils';
+import { calculateEquilibrium, getChangedParam, needsBaselineReset, syncInvestmentParameters } from './services/utils';
 
 const initialParams: EconomicParams = {
   c0: 180,
@@ -14,6 +14,13 @@ const initialParams: EconomicParams = {
   T: 120,
   t: 0.25, // 25% tax rate
   useLumpSumTax: true, // Start with traditional model
+  
+  // Investment function parameters
+  b0: 120, // Autonomous investment
+  b1: 0.15, // Investment sensitivity to income
+  b2: 1000, // Investment sensitivity to interest rate
+  i: 0.05, // 5% interest rate
+  useSimpleInvestment: true, // Start with simple investment
 };
 
 interface KeynesianCrossModelProps {
@@ -80,8 +87,14 @@ const KeynesianCrossModel: React.FC<KeynesianCrossModelProps> = ({ isDark, onBac
       }
     }
     
+    // Synchronize parameters when switching investment models
+    if (param === 'useSimpleInvestment') {
+      const syncedParams = syncInvestmentParameters(params, value);
+      Object.assign(newParams, syncedParams);
+    }
+    
     setParams(newParams);
-    // Set baseline to old params to show the effect of changing tax model
+    // Set baseline to old params to show the effect of changing model
     setBaselineParams(oldParams);
   }, [params]);
 
@@ -89,17 +102,23 @@ const KeynesianCrossModel: React.FC<KeynesianCrossModelProps> = ({ isDark, onBac
     const fetchExplanation = async () => {
       if (isInitialMount.current) {
         const initialExplanation = `
-### ¡Bienvenido al Simulador del Modelo de 45 Grados Keynesiano!
+### ¡Bienvenido al Simulador del Modelo de 45 Grados Keynesiano Avanzado!
 
-Este modelo ilustra cómo se determina el equilibrio en el mercado de bienes.
+Este modelo ilustra cómo se determina el equilibrio en el mercado de bienes con funciones de inversión y fiscalidad flexibles.
 
+**Características principales:**
 - La **línea de 45 grados** muestra todos los puntos donde la producción total (Y) es igual a la demanda total (Z).
-- La **línea de Demanda (ZZ)** muestra la demanda total de bienes y servicios para cada nivel de renta. Se calcula como **Z = C + I + G**.
-- La función de consumo es **C = c₀ + c₁ * (Y - T)**.
+- La **línea de Demanda (ZZ)** muestra la demanda total de bienes y servicios para cada nivel de renta.
+- **Función de Consumo:** C = c₀ + c₁ × (Y - T) [con impuestos fijos] o C = c₀ + c₁ × (Y - tY) [con impuestos proporcionales]
+- **Función de Inversión:** I = I₀ [inversión fija] o I = b₀ + b₁Y - b₂i [inversión endógena]
 
-La economía está en **equilibrio** donde la línea ZZ se cruza con la línea de 45 grados. En este punto, la producción es exactamente igual a la demanda.
+**Modelos disponibles:**
+- **Fiscal:** Impuestos fijos (T) vs. proporcionales (tY)
+- **Inversión:** Fija (I) vs. endógena (función de renta y tipo de interés)
 
-**¡Usa los controles de la izquierda para cambiar los parámetros económicos y ver qué sucede!** El gráfico se actualizará instantáneamente y este panel proporcionará una explicación paso a paso de las consecuencias económicas.
+La economía está en **equilibrio** donde la línea ZZ se cruza con la línea de 45 grados. Con inversión endógena, el multiplicador es más complejo y la economía más dinámica.
+
+**¡Explora los diferentes modelos usando los toggles y observa cómo cambia la dinámica económica!**
         `;
         setExplanation(initialExplanation.trim());
         setIsLoading(false);
@@ -143,12 +162,23 @@ La economía está en **equilibrio** donde la línea ZZ se cruza con la línea d
   }, []);
 
   const autonomousSpending = useMemo(() => {
+    let investment;
+    
+    // Calculate investment component
+    if (params.useSimpleInvestment) {
+      investment = params.I;
+    } else {
+      // For endogenous investment, we need the autonomous part only
+      // The part that depends on Y will be handled separately
+      investment = params.b0 - params.b2 * params.i;
+    }
+    
     if (params.useLumpSumTax) {
       // Traditional model: T = T0 (lump sum)
-      return params.c0 + params.I + params.G - params.c1 * params.T;
+      return params.c0 + investment + params.G - params.c1 * params.T;
     } else {
       // Extended model: T = tY (proportional taxes)
-      return params.c0 + params.I + params.G;
+      return params.c0 + investment + params.G;
     }
   }, [params]);
 
@@ -160,21 +190,36 @@ La economía está en **equilibrio** donde la línea ZZ se cruza con la línea d
       let currentZ, baselineZ = null;
       
       // Current model calculation
+      let marginalPropensity;
       if (params.useLumpSumTax) {
-        currentZ = autonomousSpending + params.c1 * y;
+        marginalPropensity = params.c1 + (params.useSimpleInvestment ? 0 : params.b1);
+        currentZ = autonomousSpending + marginalPropensity * y;
       } else {
-        currentZ = autonomousSpending + params.c1 * (1 - params.t) * y;
+        marginalPropensity = params.c1 * (1 - params.t) + (params.useSimpleInvestment ? 0 : params.b1);
+        currentZ = autonomousSpending + marginalPropensity * y;
       }
       
       // Baseline model calculation (if exists)
       if (baselineParams) {
         let baselineAutonomous;
-        if (baselineParams.useLumpSumTax) {
-          baselineAutonomous = baselineParams.c0 + baselineParams.I + baselineParams.G - baselineParams.c1 * baselineParams.T;
-          baselineZ = baselineAutonomous + baselineParams.c1 * y;
+        let baselineInvestment;
+        
+        // Calculate baseline investment component
+        if (baselineParams.useSimpleInvestment) {
+          baselineInvestment = baselineParams.I;
         } else {
-          baselineAutonomous = baselineParams.c0 + baselineParams.I + baselineParams.G;
-          baselineZ = baselineAutonomous + baselineParams.c1 * (1 - baselineParams.t) * y;
+          baselineInvestment = baselineParams.b0 - baselineParams.b2 * baselineParams.i;
+        }
+        
+        let baselineMarginalPropensity;
+        if (baselineParams.useLumpSumTax) {
+          baselineAutonomous = baselineParams.c0 + baselineInvestment + baselineParams.G - baselineParams.c1 * baselineParams.T;
+          baselineMarginalPropensity = baselineParams.c1 + (baselineParams.useSimpleInvestment ? 0 : baselineParams.b1);
+          baselineZ = baselineAutonomous + baselineMarginalPropensity * y;
+        } else {
+          baselineAutonomous = baselineParams.c0 + baselineInvestment + baselineParams.G;
+          baselineMarginalPropensity = baselineParams.c1 * (1 - baselineParams.t) + (baselineParams.useSimpleInvestment ? 0 : baselineParams.b1);
+          baselineZ = baselineAutonomous + baselineMarginalPropensity * y;
         }
       }
       

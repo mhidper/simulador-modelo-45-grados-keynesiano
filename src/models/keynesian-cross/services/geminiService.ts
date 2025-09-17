@@ -48,6 +48,31 @@ const paramDescriptions: Record<keyof EconomicParams, { name: string, realExampl
         name: "Modelo Fiscal", 
         realExample: "determina si los impuestos son fijos o proporcionales",
         symbol: "modelo"
+    },
+    b0: {
+        name: "Inversión Autónoma",
+        realExample: "la inversión que hacen las empresas independientemente de la renta o el interés",
+        symbol: "b₀"
+    },
+    b1: {
+        name: "Sensibilidad de Inversión a la Renta",
+        realExample: "cuánto más invierten las empresas cuando mejora la economía",
+        symbol: "b₁"
+    },
+    b2: {
+        name: "Sensibilidad de Inversión al Interés",
+        realExample: "cuánto menos invierten las empresas cuando suben los tipos de interés",
+        symbol: "b₂"
+    },
+    i: {
+        name: "Tipo de Interés",
+        realExample: "el coste del dinero que influye en las decisiones de inversión",
+        symbol: "i"
+    },
+    useSimpleInvestment: {
+        name: "Modelo de Inversión",
+        realExample: "determina si la inversión es fija o depende de la renta y el interés",
+        symbol: "modelo"
     }
 };
 
@@ -66,8 +91,8 @@ const generateNarrativeLocalExplanation = (
     const equilibriumChange = newEquilibrium - oldEquilibrium;
     const isIncrease = change > 0;
     const multiplier = newParams.useLumpSumTax ? 
-        (1 / (1 - newParams.c1)) : 
-        (1 / (1 - newParams.c1 * (1 - newParams.t)));
+        (newParams.useSimpleInvestment ? (1 / (1 - newParams.c1)) : (1 / (1 - newParams.c1 - newParams.b1))) : 
+        (newParams.useSimpleInvestment ? (1 / (1 - newParams.c1 * (1 - newParams.t))) : (1 / (1 - newParams.c1 * (1 - newParams.t) - newParams.b1)));
 
     let story = "";
 
@@ -153,6 +178,77 @@ En términos concretos: ${isIncrease ? 'más obras públicas, más funcionarios 
 Los empleados públicos ${isIncrease ? 'que cobran este dinero extra lo gastan' : 'que pierden ingresos reducen su consumo'}, y este efecto se propaga por toda la economía.
 
 El multiplicador de ${multiplier.toFixed(2)} ha convertido estos ${Math.abs(change)} millones en ${Math.abs(equilibriumChange).toFixed(0)} millones de impacto económico total.`;
+            break;
+
+        case 'useSimpleInvestment':
+            const newInvestmentModel = newParams.useSimpleInvestment ? 'inversión fija' : 'inversión endógena';
+            const oldInvestmentModel = oldParams.useSimpleInvestment ? 'inversión fija' : 'inversión endógena';
+            const currentY = newEquilibrium;
+            const effectiveInvestment = newParams.useSimpleInvestment ? 
+                newParams.I : 
+                (newParams.b0 + newParams.b1 * currentY - newParams.b2 * newParams.i);
+            
+            story = `¡Acabamos de cambiar el modelo de inversión! Hemos pasado de ${oldInvestmentModel} a ${newInvestmentModel}.
+
+¿Qué significa esto? ${newParams.useSimpleInvestment ? 
+                'Ahora la inversión empresarial es una cantidad fija de ' + newParams.I + ' millones, independientemente de lo que pase en la economía.' : 
+                'Ahora la inversión empresarial depende de las condiciones económicas: I = ' + newParams.b0 + ' + ' + newParams.b1 + '×Y - ' + newParams.b2 + '×i'}
+
+En el mundo real: ${newParams.useSimpleInvestment ? 
+                'Las empresas tienen un presupuesto fijo para inversión, sin importar si la economía va bien o mal, ni si el dinero está caro o barato.' : 
+                'Las empresas ajustan sus planes de inversión según vean la economía. Si va bien (Y alto), invierten más. Si el dinero está caro (i alto), invierten menos.'}
+
+Esto cambia drásticamente la dinámica económica. ${newParams.useSimpleInvestment ? 
+                'Con inversión fija, la economía es más predecible pero menos dinámica.' : 
+                'Con inversión endógena, la economía es más volátil - los auges se amplifican pero también las crisis.'}
+
+El multiplicador ha cambiado y el equilibrio ha pasado a ${newEquilibrium.toFixed(0)} millones. La inversión efectiva ahora es de ${effectiveInvestment.toFixed(0)} millones.`;
+            break;
+
+        case 'b0':
+            story = `Hemos cambiado la inversión autónoma de ${oldValue} a ${newValue} millones. Esta es la parte de la inversión empresarial que NO depende de la situación económica.
+
+En términos prácticos: ${isIncrease ? 'Las empresas han decidido invertir ' + Math.abs(change) + ' millones más en proyectos básicos' : 'Las empresas han recortado ' + Math.abs(change) + ' millones en sus planes de inversión esencial'} - independientemente de cómo vaya la economía o cuánto cueste el dinero.
+
+Ejemplos: ${isIncrease ? 'renovación de fábricas anticuadas, apertura de nuevas sedes, compra de patentes necesarias' : 'aplazamiento de renovaciones, cierre de proyectos no rentables, reducción de I+D'}.
+
+Con el multiplicador actual de ${multiplier.toFixed(2)}, este cambio de ${Math.abs(change)} millones ha generado ${Math.abs(equilibriumChange).toFixed(0)} millones de impacto total en la economía.`;
+            break;
+
+        case 'b1':
+            story = `Hemos modificado la sensibilidad de la inversión a la renta de ${oldValue} a ${newValue}. Esto significa que por cada euro extra de PIB, las empresas ahora ${isIncrease ? 'aumentan' : 'reducen'} su inversión en ${Math.abs(change * 1000).toFixed(0)} céntimos.
+
+¿Qué significa en la realidad? ${isIncrease ? 'Las empresas se han vuelto más optimistas y agresivas: cuando ven que la economía mejora, rápidamente aumentan sus planes de inversión.' : 'Las empresas se han vuelto más conservadoras: aunque la economía mejore, prefieren mantener sus niveles de inversión.'}
+
+Esto ${isIncrease ? 'acelera' : 'estabiliza'} la economía. ${isIncrease ? 'Los auges serán más fuertes pero también las caídas.' : 'La economía será más estable frente a las fluctuaciones.'}
+
+El multiplicador ahora es ${multiplier.toFixed(2)}, ${isIncrease ? 'mayor que antes debido al efecto acelerador' : 'lo que refleja una economía más amortiguada'}. El equilibrio ha cambiado a ${newEquilibrium.toFixed(0)} millones.`;
+            break;
+
+        case 'b2':
+            story = `Hemos cambiado la sensibilidad de la inversión al tipo de interés de ${oldValue} a ${newValue}. Esto significa que cuando los tipos suben 1 punto porcentual, la inversión ahora ${isIncrease ? 'cae' : 'cae menos'} en ${newValue} millones.
+
+En el mundo empresarial: ${isIncrease ? 'Las empresas se han vuelto más sensibles al coste del dinero. Un pequeño cambio en los tipos de interés ahora afecta mucho a sus decisiones de inversión.' : 'Las empresas se han vuelto menos dependientes del coste del crédito - quizás tienen más liquidez propia o proyectos muy rentables.'}
+
+Con el tipo actual del ${(newParams.i * 100).toFixed(1)}%, la inversión efectiva es ${(newParams.b0 + newParams.b1 * newEquilibrium - newParams.b2 * newParams.i).toFixed(0)} millones.
+
+Esto hace que la política monetaria sea ${isIncrease ? 'MÁS efectiva' : 'MENOS efectiva'}. ${isIncrease ? 'El Banco Central tiene más poder para influir en la economía cambiando los tipos.' : 'Los cambios en los tipos de interés tendrán menos impacto en la actividad económica.'}`;  
+            break;
+
+        case 'i':
+            const oldInvestmentValue = oldParams.b0 + oldParams.b1 * oldEquilibrium - oldParams.b2 * oldValue;
+            const newInvestmentValue = newParams.b0 + newParams.b1 * newEquilibrium - newParams.b2 * newValue;
+            const investmentChange = newInvestmentValue - oldInvestmentValue;
+            
+            story = `Hemos cambiado el tipo de interés del ${(oldValue * 100).toFixed(1)}% al ${(newValue * 100).toFixed(1)}%. 
+
+Esto afecta directamente a las decisiones de inversión empresarial. ${isIncrease ? 'Con dinero más caro, las empresas han reducido su inversión' : 'Con dinero más barato, las empresas han aumentado su inversión'} en ${Math.abs(investmentChange).toFixed(0)} millones.
+
+En términos prácticos: ${isIncrease ? 'Los proyectos empresariales ahora son menos rentables. Muchos se aplazan o cancelan porque el coste de financiación es demasiado alto.' : 'Los proyectos empresariales son más atractivos. Financiarse es más barato, así que se aprueban más inversiones.'}
+
+La inversión total ha pasado de ${oldInvestmentValue.toFixed(0)} a ${newInvestmentValue.toFixed(0)} millones.
+
+Este es un ejemplo clásico de cómo la política monetaria afecta a la economía real a través del canal de la inversión. El equilibrio final ha cambiado a ${newEquilibrium.toFixed(0)} millones.`;
             break;
 
         case 'T':
