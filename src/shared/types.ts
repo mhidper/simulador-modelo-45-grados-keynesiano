@@ -37,16 +37,56 @@ export interface ChartData {
   z_prime_line: number | null;
 }
 
-// Tipos para futuros modelos
+// Tipos para el modelo IS-LM
 export interface ISLMParams {
-  // A definir cuando implementemos IS-LM
-  a: number;  // Autonomous spending
-  b: number;  // Interest rate sensitivity of investment
-  c: number;  // MPC
-  d: number;  // Income sensitivity of money demand
-  h: number;  // Interest rate sensitivity of money demand
-  M: number;  // Money supply
-  P: number;  // Price level
+  // Parámetros de la función de consumo
+  c0: number;  // Consumo autónomo
+  c1: number;  // Propensión marginal a consumir (0 < c1 < 1)
+  
+  // Parámetros de la función de inversión: I = I0 + d1*Y - d2*i
+  I0: number;  // Inversión autónoma
+  d1: number;  // Sensibilidad de la inversión a la renta (d1 > 0)
+  d2: number;  // Sensibilidad de la inversión al tipo de interés (d2 > 0)
+  
+  // Variables de política fiscal
+  G: number;   // Gasto público
+  T: number;   // Impuestos de suma fija (cuando useLumpSumTax = true)
+  t: number;   // Tipo impositivo proporcional T = t*Y (cuando useLumpSumTax = false)
+  useLumpSumTax: boolean; // true = T constante, false = T = t*Y
+  
+  // Política monetaria moderna: LM horizontal
+  iBar: number; // Tipo de interés objetivo fijado por el BCE (ī)
+}
+
+export interface ISLMEquilibrium {
+  Y: number;   // Producción de equilibrio
+  i: number;   // Tipo de interés de equilibrio (= iBar en LM horizontal)
+  C: number;   // Consumo de equilibrio
+  I: number;   // Inversión de equilibrio
+  
+  // Gasto autónomo calculado
+  A: number;
+}
+
+export interface ISCurvePoint {
+  Y: number;   // Producción
+  i: number;   // Tipo de interés correspondiente en la curva IS
+}
+
+export interface LMCurvePoint {
+  Y: number;   // Producción (puede variar)
+  i: number;   // Tipo de interés (constante = iBar en LM horizontal)
+}
+
+export interface ISLMChartData {
+  isCurve: ISCurvePoint[];   // Puntos de la curva IS actual
+  lmCurve: LMCurvePoint[];   // Puntos de la curva LM actual (horizontal)
+  equilibrium: ISLMEquilibrium; // Punto de equilibrio actual
+  
+  // Curvas anteriores (para mostrar el cambio)
+  previousIsCurve?: ISCurvePoint[];   // Curva IS antes del cambio
+  previousLmCurve?: LMCurvePoint[];   // Curva LM antes del cambio
+  previousEquilibrium?: ISLMEquilibrium; // Equilibrio anterior
 }
 
 export interface PhillipsCurveParams {

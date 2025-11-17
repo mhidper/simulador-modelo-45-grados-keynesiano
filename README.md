@@ -27,7 +27,7 @@
 
 #### 📈 **1. Modelo de 45 Grados (Cruz Keynesiana)**
 - **Nivel**: Básico
-- **Tiempo estimado**: 30-45 min
+- **Tiempo estimado**: 120 min
 - **Descripción**: Modelo fundamental que determina el equilibrio en el mercado de bienes
 - **Características**:
   - Ajuste de parámetros en tiempo real (c₀, c₁, I, G, T)

@@ -22,7 +22,7 @@ export const ECONOMIC_MODELS: EconomicModel[] = [
     name: 'Modelo IS-LM',
     description: 'Análisis simultáneo del equilibrio en los mercados de bienes (IS) y dinero (LM). Permite estudiar las interacciones entre política fiscal y monetaria.',
     level: 'intermedio',
-    isAvailable: false,
+    isAvailable: true, // ✅ CAMBIADO A TRUE PARA PRUEBAS
     icon: '⚖️',
     color: 'from-green-500 to-teal-600',
     estimatedTime: '45-60 min',

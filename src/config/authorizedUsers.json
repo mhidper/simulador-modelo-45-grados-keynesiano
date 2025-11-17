@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "email": "alumno1@universidad.es",
+      "code": "DEMO123"
+    },
+    {
+      "email": "alumno2@universidad.es",
+      "code": "TEST456"
+    },
+    {
+      "email": "profesor@universidad.es",
+      "code": "PROF789"
+    },
+    {
+      "email": "alej.hidalgo@gmail.com",
+      "code": "upf42892"
+    }
+  ]
+}
