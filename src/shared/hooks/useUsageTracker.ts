@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-const USAGE_LIMIT_SECONDS = 2 * 60 * 60; // 2 hours in seconds
-const UPDATE_INTERVAL_MS = 1000; // Update usage every 1 second for precision
-const SAVE_TO_STORAGE_INTERVAL = 5000; // Save to localStorage every 5 seconds
+const USAGE_LIMIT_SECONDS = 2 * 60 * 60; // 2 horas en segundos
+const UPDATE_INTERVAL_MS = 1000; // Actualizar uso cada 1 segundo
+const SAVE_TO_STORAGE_INTERVAL = 5000; // Guardar en localStorage cada 5 segundos
 
 /**
  * Obtiene el inicio de la semana actual (lunes a las 00:00)
@@ -10,7 +10,7 @@ const SAVE_TO_STORAGE_INTERVAL = 5000; // Save to localStorage every 5 seconds
 const getStartOfWeek = (): Date => {
   const now = new Date();
   const day = now.getDay(); // Sunday - 0, Monday - 1, ...
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Ajustar si es domingo
   const monday = new Date(now.setDate(diff));
   monday.setHours(0, 0, 0, 0);
   return monday;
@@ -38,6 +38,11 @@ export const useUsageTracker = () => {
   const [remainingTime, setRemainingTime] = useState<number>(USAGE_LIMIT_SECONDS);
   const [nextResetDate, setNextResetDate] = useState<Date>(getNextMonday());
   const [usageSeconds, setUsageSeconds] = useState<number>(0);
+
+  // --- SOLUCIÓN: Refs para persistir valores entre renders ---
+  const lastSaveTimeRef = useRef<number>(Date.now());
+  const usageSecondsRef = useRef<number>(0);
+  // ---------------------------------------------------------
 
   /**
    * Verifica si estamos en una nueva semana y resetea el uso si es necesario
@@ -74,6 +79,13 @@ export const useUsageTracker = () => {
   }, []);
 
   /**
+   * Guarda el uso actual en localStorage
+   */
+  const saveToStorage = useCallback((currentUsage: number) => {
+    localStorage.setItem('weeklyUsage', currentUsage.toString());
+  }, []);
+
+  /**
    * Inicializa el estado del tracker
    */
   const initializeTracker = useCallback(() => {
@@ -81,6 +93,7 @@ export const useUsageTracker = () => {
     const currentRemaining = USAGE_LIMIT_SECONDS - usage;
     
     setUsageSeconds(usage);
+    usageSecondsRef.current = usage; // Sincronizar el Ref
     setRemainingTime(currentRemaining);
     setNextResetDate(getNextMonday());
     setIsLocked(currentRemaining <= 0);
@@ -94,13 +107,6 @@ export const useUsageTracker = () => {
     }
   }, [checkAndResetWeek]);
 
-  /**
-   * Guarda el uso actual en localStorage
-   */
-  const saveToStorage = useCallback((currentUsage: number) => {
-    localStorage.setItem('weeklyUsage', currentUsage.toString());
-  }, []);
-
   // Inicializar al montar el componente
   useEffect(() => {
     initializeTracker();
@@ -110,30 +116,36 @@ export const useUsageTracker = () => {
   useEffect(() => {
     if (isLocked) return;
 
-    let lastSaveTime = Date.now();
+    // Reiniciar el tiempo de guardado solo cuando el timer *empieza*
+    lastSaveTimeRef.current = Date.now();
 
     const intervalId = setInterval(() => {
       // Solo contar tiempo si la pestaña está activa
       if (document.hasFocus()) {
+        
+        // Actualizamos el estado usando la forma de "callback"
+        // Esto nos da el valor previo sin necesitarlo como dependencia
         setUsageSeconds(prev => {
           const newUsage = prev + 1;
+          usageSecondsRef.current = newUsage; // Mantener Ref sincronizado
           const newRemaining = USAGE_LIMIT_SECONDS - newUsage;
           
           setRemainingTime(newRemaining);
 
-          // Guardar en localStorage cada 5 segundos
+          // Guardar en localStorage cada 5 segundos (usando el Ref)
           const now = Date.now();
-          if (now - lastSaveTime >= SAVE_TO_STORAGE_INTERVAL) {
+          if (now - lastSaveTimeRef.current >= SAVE_TO_STORAGE_INTERVAL) {
             saveToStorage(newUsage);
-            lastSaveTime = now;
+            lastSaveTimeRef.current = now; // Actualizar el Ref de tiempo
+            console.log(`💾 Progreso guardado: ${newUsage}s`);
           }
 
           // Verificar si se agotó el tiempo
           if (newRemaining <= 0) {
             setIsLocked(true);
-            saveToStorage(newUsage);
+            saveToStorage(newUsage); // Guardado final
             console.log('🔒 Tiempo agotado - Bloqueando acceso');
-            clearInterval(intervalId);
+            clearInterval(intervalId); // Limpiar aquí mismo
           }
 
           return newUsage;
@@ -144,9 +156,12 @@ export const useUsageTracker = () => {
     // Guardar al desmontar el componente (cuando el usuario cierra la pestaña)
     return () => {
       clearInterval(intervalId);
-      saveToStorage(usageSeconds);
+      // Usar el Ref al guardar (siempre tiene el valor más actual)
+      saveToStorage(usageSecondsRef.current);
+      console.log(`👋 Pestaña cerrada - Progreso guardado: ${usageSecondsRef.current}s`);
     };
-  }, [isLocked, saveToStorage, usageSeconds]);
+  // Quitar usageSeconds del array de dependencias para evitar reinicios
+  }, [isLocked, saveToStorage]); 
 
   // Verificar reset de semana al recuperar el foco
   useEffect(() => {
