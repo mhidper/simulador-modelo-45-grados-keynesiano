@@ -16,7 +16,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDark }) => {
     setError('');
 
     if (!email || !password) {
-      setError('Por favor, introduce tu email y código de acceso.'); // Updated error message for clarity
+      setError('Por favor, introduce tu usuario y código de acceso.'); // Updated error message
       return;
     }
 
@@ -77,13 +77,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDark }) => {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="email" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-              Email
+              Usuario
             </label>
             <input
               type="email"
               id="email"
               className={inputClasses}
-              placeholder="tu@email.com"
+              placeholder="usuario"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
