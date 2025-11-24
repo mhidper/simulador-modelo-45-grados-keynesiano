@@ -80,7 +80,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDark }) => {
               Usuario
             </label>
             <input
-              type="email"
+              type="text"
               id="email"
               className={inputClasses}
               placeholder="usuario"
@@ -97,7 +97,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDark }) => {
               type="password"
               id="password"
               className={inputClasses}
-              placeholder="Código de Acceso" // Changed placeholder
+              placeholder="Código de Acceso"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
